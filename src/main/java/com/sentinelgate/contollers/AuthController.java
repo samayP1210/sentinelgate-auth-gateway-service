@@ -1,5 +1,6 @@
 package com.sentinelgate.contollers;
 
+import com.sentinelgate.database.mysql.entity.User;
 import com.sentinelgate.manager.AuthManager;
 import com.sentinelgate.request.AuthRequest;
 import com.sentinelgate.response.AuthResponse;
@@ -23,11 +24,6 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> signup(@RequestBody AuthRequest request){
         return authManager.signup(request.getUsername(), request.getPassword());
-    }
-
-    @PostMapping("/validate")
-    public Object validate(@RequestParam("token") String token){
-        return new JwtUtils().validateToken(token);
     }
 
 }
