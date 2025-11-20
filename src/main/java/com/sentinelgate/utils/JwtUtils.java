@@ -32,7 +32,7 @@ public class JwtUtils {
             return Jwts.builder()
                     .setSubject(objectMapper.writeValueAsString(object))
                     .setIssuedAt(new Date(System.currentTimeMillis()))
-                    .setExpiration(new Date(System.currentTimeMillis() + 20 * 1000L))
+                    .setExpiration(new Date(System.currentTimeMillis() + 60 * 60 * 1000L))
                     .signWith(getKey(), SignatureAlgorithm.HS256)
                     .compact();
         } catch (Exception e) {
@@ -46,17 +46,17 @@ public class JwtUtils {
         return Keys.hmacShaKeyFor(key);
     }
 
-    public <T> T extractPayload(String token, Class<T> clazz){
-        try{
+    public <T> T extractPayload(String token, Class<T> clazz) {
+        try {
             String subject = extractClaim(token, Claims::getSubject);
             return objectMapper.readValue(subject, clazz);
-        } catch (Exception e){
+        } catch (Exception e) {
             log.error("Error while extracting payload, err: ", e);
             return null;
         }
     }
 
-    public <T> T extractClaim(String token, Function<Claims, T> claimClass){
+    public <T> T extractClaim(String token, Function<Claims, T> claimClass) {
         Claims claims = Jwts.parserBuilder().setSigningKey(getKey()).build().parseClaimsJws(token).getBody();
         return claimClass.apply(claims);
     }
@@ -74,6 +74,5 @@ public class JwtUtils {
             return false;
         }
     }
-
 
 }

@@ -19,6 +19,18 @@ public class ConfigUtils {
 
     //1 hour in milliseconds
     @Value("${jwt.expiration-ms:3600000}")
-    private long jwtExpirationMs;
+    private Long jwtExpirationMs;
+
+    @Value("${rate-limit.token-size-per-second:3}")
+    private Integer rateLimitingTokenSizePerSecond;
+
+    @Value("${rate-limit.max-token:7}")
+    private Integer rateLimitingMaxToken;
+
+    @Value("${rate-limit.ttl:3600}")
+    private Integer rateLimitingTtlMs;
+
+    @Value("${rate-limit.enabled:true}")
+    private Boolean rateLimitingEnabled;
 
 }

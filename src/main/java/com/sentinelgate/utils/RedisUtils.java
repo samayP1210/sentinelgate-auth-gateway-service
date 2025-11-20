@@ -1,5 +1,7 @@
 package com.sentinelgate.utils;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.common.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,12 +17,15 @@ public class RedisUtils {
     Logger log = LoggerFactory.getLogger(RedisUtils.class);
 
     @Autowired
-    RedisTemplate<String, Object> redisTemplate;
+    RedisTemplate<String, String> redisTemplate;
 
-    public void set(String key, Object value){
+    @Autowired
+    ObjectMapper objectMapper;
+
+    public <T> void set(String key, T value){
         try {
             if (StringUtils.isNotEmpty(key))
-                redisTemplate.opsForValue().set(key, value);
+                redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(value));
             else
                 log.info("Empty redis key");
         }catch (Exception e){
@@ -28,10 +33,10 @@ public class RedisUtils {
         }
     }
 
-    public void set(String key, Object value, Integer expiry){
+    public <T> void set(String key, T value, Integer expiry){
         try {
             if (StringUtils.isNotEmpty(key))
-                redisTemplate.opsForValue().set(key, value, expiry, TimeUnit.SECONDS);
+                redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(value), expiry, TimeUnit.SECONDS);
             else
                 log.info("Empty redis key");
         }catch (Exception e){
@@ -39,17 +44,32 @@ public class RedisUtils {
         }
     }
 
-    public Object get(String key){
-        Object val = null;
+    public <T> T get(String key, Class<T> clazz){
+        T response = null;
         try {
-            if (StringUtils.isNotEmpty(key))
-                val = redisTemplate.opsForValue().get(key);
-            log.info("Empty redis key");
+            if (StringUtils.isNotEmpty(key)){
+                String val = redisTemplate.opsForValue().get(key);
+                if (val != null)
+                    response = objectMapper.readValue(val, clazz);
+            } else {
+                log.info("Empty redis key");
+            }
         }catch (Exception e){
             log.error("Error while getting from redis, key: {}, err: ", key, e);
         }
-        log.info("key: {}, value: {}", key, val);
-        return val;
+        log.info("key: {}, value: {}", key, response);
+        return response;
+    }
+
+    public <T> T getOrThrow(String key, Class<T> clazz) throws Exception {
+        if (StringUtils.isNotEmpty(key)) {
+            String val = redisTemplate.opsForValue().get(key);
+            if (val != null)
+                return objectMapper.readValue(val, clazz);
+        } else {
+            log.info("Empty redis key");
+        }
+        return null;
     }
 
 }

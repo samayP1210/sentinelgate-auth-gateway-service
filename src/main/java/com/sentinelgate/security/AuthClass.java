@@ -19,7 +19,7 @@ public class AuthClass {
     private void init() {
         String[] paths = new String[]{
           "/auth/**",
-//          "/health"
+          "/health"
         };
         this.excludingPaths = new HashSet<>(Arrays.asList(paths));
     }
