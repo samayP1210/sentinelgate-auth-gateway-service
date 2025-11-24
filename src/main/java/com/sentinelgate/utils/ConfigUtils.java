@@ -17,6 +17,13 @@ public class ConfigUtils {
     @Value("${jwt.secret:null}")
     private String jwtSecret;
 
+    @Value("${services.product.host:null}")
+    private String productServiceHost;
+
+
+    @Value("${services.product.timeout:3000}")
+    private Integer productServiceTimeout;
+
     //1 hour in milliseconds
     @Value("${jwt.expiration-ms:3600000}")
     private Long jwtExpirationMs;

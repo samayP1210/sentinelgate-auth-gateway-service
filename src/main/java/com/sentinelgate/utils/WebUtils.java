@@ -1,6 +1,7 @@
 package com.sentinelgate.utils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +15,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Map;
 
 @Component
 public class WebUtils {
@@ -144,4 +147,15 @@ public class WebUtils {
         }
     }
 
+    public HashMap<String, String> getHeaders(HttpServletRequest request) {
+        HashMap<String, String> headers = new HashMap<>();
+
+        Enumeration<String> headerNames = request.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String name = headerNames.nextElement();
+            headers.put(name, request.getHeader(name));
+        }
+
+        return headers;
+    }
 }
