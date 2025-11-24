@@ -64,20 +64,21 @@ public class GatewayManager {
             // build targetUrl safely (avoid double slashes)
             String suffix = (pathSuffix == null) ? "" : pathSuffix;
             String query = Optional.ofNullable(request.getQueryString()).map(q -> "?" + q).orElse("");
-            String targetUrl = targetBase + suffix + query;
+            String targetUrl = targetBase + "/" + serviceKey + suffix + query;
 
             HashMap<String, String> headers = webUtils.getHeaders(request); // assume webUtils returns a Map<String,String>
-
             // determine method (case-insensitive)
             String rawMethod = request.getMethod();
             String method = (rawMethod == null || rawMethod.isBlank()) ? "GET" : rawMethod.toUpperCase(Locale.ROOT);
 
             // Read body safely (raw bytes -> UTF-8 string). If you need binary support, change WebUtils API.
             String body = null;
+            Object bodyObject = new Object();
             if (!"GET".equals(method) && !"DELETE".equals(method)) {
                 byte[] bytes = StreamUtils.copyToByteArray(request.getInputStream());
                 if (bytes.length > 0) {
                     body = new String(bytes, StandardCharsets.UTF_8);
+                    bodyObject = objectMapper.readValue(body, Object.class);
                 }
             }
 
@@ -88,10 +89,10 @@ public class GatewayManager {
                         upstreamResponse = webUtils.get(targetUrl, headers, configUtils.getProductServiceTimeout());
                         break;
                     case "PUT":
-                        upstreamResponse = webUtils.put(targetUrl, body == null ? "" : body, headers, configUtils.getProductServiceTimeout());
+                        upstreamResponse = webUtils.put(targetUrl, bodyObject, headers, configUtils.getProductServiceTimeout());
                         break;
                     case "POST":
-                        upstreamResponse = webUtils.post(targetUrl, body == null ? "" : body, headers, configUtils.getProductServiceTimeout());
+                        upstreamResponse = webUtils.post(targetUrl, bodyObject, headers, configUtils.getProductServiceTimeout());
                         break;
                     case "DELETE":
                         upstreamResponse = webUtils.delete(targetUrl, headers, configUtils.getProductServiceTimeout());

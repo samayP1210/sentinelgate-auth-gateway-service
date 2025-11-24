@@ -18,12 +18,45 @@ import java.time.Duration;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 @Component
 public class WebUtils {
 
     @Autowired
     ObjectMapper objectMapper;
+
+    private static final Set<String> FORBIDDEN_HEADERS = Set.of(
+            // RFC 7230 Hop-by-Hop Headers
+            "connection",
+            "keep-alive",
+            "proxy-authenticate",
+            "proxy-authorization",
+            "te",                  // except "TE: trailers" but we don't allow partial exceptions
+            "trailer",
+            "transfer-encoding",
+            "upgrade",
+
+            // Must NOT forward (proxy-specific, unsafe)
+            "host",                // MUST NOT forward
+            "content-length",      // recalc on outbound request
+            "content-encoding",    // inbound encoding, not outbound
+            "accept-encoding",     // compression negotiation should be re-done by proxy
+            "postman-token",       // Postman-only debug header
+            "via",                 // internal proxy chain info
+            "x-forwarded-for",     // should be REWRITTEN, not forwarded blindly
+            "x-forwarded-host",
+            "x-forwarded-proto",
+
+            // Rare but dangerous
+            "upgrade-insecure-requests",
+            "forwarded",           // standardized version of X-Forwarded-*
+
+            // Optional (good practice to drop)
+            "user-agent",          // usually overwritten by gateway
+            "connection-close"     // mistaken header, sometimes appears in legacy clients
+    );
+
 
     Logger log = LoggerFactory.getLogger(WebUtils.class);
 
@@ -153,7 +186,9 @@ public class WebUtils {
         Enumeration<String> headerNames = request.getHeaderNames();
         while (headerNames.hasMoreElements()) {
             String name = headerNames.nextElement();
-            headers.put(name, request.getHeader(name));
+            if (!FORBIDDEN_HEADERS.contains(name)) {
+                headers.put(name, request.getHeader(name));
+            }
         }
 
         return headers;

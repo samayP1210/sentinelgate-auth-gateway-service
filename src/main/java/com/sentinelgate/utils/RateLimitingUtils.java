@@ -1,7 +1,6 @@
 package com.sentinelgate.utils;
 
 import com.sentinelgate.pojo.RateLimitRedisPojo;
-import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class RateLimitingUtils {
@@ -20,14 +20,13 @@ public class RateLimitingUtils {
     @Autowired
     private ConfigUtils configUtils;
 
-    private Deque<Long> globalDeque;
+    private final ConcurrentHashMap<String, Deque<Long>> globalDequeMap;
+
+    RateLimitingUtils() {
+        globalDequeMap = new ConcurrentHashMap<>();
+    }
 
     Logger log = LoggerFactory.getLogger(RateLimitingUtils.class);
-
-    @PostConstruct
-    public void init(){
-        globalDeque = new ArrayDeque<>();
-    }
 
     public Boolean isRequestAllowed(String path) {
         try {
@@ -40,14 +39,15 @@ public class RateLimitingUtils {
 
     private Boolean rateLimitUsingRedis(String path) throws Exception {
         // token bucket, throw exception if connection to redis not established
-        if (! configUtils.getRateLimitingEnabled()){
+        if (!configUtils.getRateLimitingEnabled()) {
             return true;
         }
 
-        RateLimitRedisPojo ratePojo = redisUtils.getOrThrow("RLP", RateLimitRedisPojo.class);
+        String RATE_LIMITING_REDIS_KEY = "RLP_" + path;
+        RateLimitRedisPojo ratePojo = redisUtils.getOrThrow(RATE_LIMITING_REDIS_KEY, RateLimitRedisPojo.class);
         Integer tokens;
-        Integer currentTime = (int)(System.currentTimeMillis() / 3000);
-        if (ratePojo == null){
+        Integer currentTime = (int) (System.currentTimeMillis() / 3000);
+        if (ratePojo == null) {
             tokens = configUtils.getRateLimitingTokenSizePerSecond();
         } else {
             Integer lastRequestTime = ratePojo.getLastRequestTime();
@@ -56,33 +56,37 @@ public class RateLimitingUtils {
 
         log.info("time: {}, count: {}", currentTime, tokens);
 
-        if (tokens <= 0){
+        if (tokens <= 0) {
             return false;
         }
-        redisUtils.set("RLP", new RateLimitRedisPojo(tokens - 1, currentTime));
+        redisUtils.set(RATE_LIMITING_REDIS_KEY, new RateLimitRedisPojo(tokens - 1, currentTime));
         return true;
     }
 
     private Boolean rateLimitLocally(String path) {
         try {
-            if (! configUtils.getRateLimitingEnabled()){
+            if (!configUtils.getRateLimitingEnabled()) {
                 return true;
             }
 
             // sliding window rate limiting
             long currentTime = Instant.now().toEpochMilli();
-            synchronized (globalDeque) {
-                while (!globalDeque.isEmpty() && globalDeque.peekFirst() < currentTime) {
-                    globalDeque.pollFirst();
+            Deque<Long> pathDeque = globalDequeMap.computeIfAbsent(path, k -> new ArrayDeque<>());
+
+            synchronized (pathDeque) {
+                while (!pathDeque.isEmpty() && pathDeque.peekFirst() < currentTime) {
+                    pathDeque.pollFirst();
                 }
 
-                int current = globalDeque.size();
+                int current = pathDeque.size();
                 if (current < configUtils.getRateLimitingMaxToken()) {
-                    globalDeque.addLast(currentTime + configUtils.getRateLimitingTtlMs());
+                    pathDeque.addLast(currentTime + configUtils.getRateLimitingTtlMs());
+                    globalDequeMap.put(path, pathDeque);
                     return true;
                 }
                 return false;
             }
+
         } catch (Exception e) {
             log.error("Error while rate limiting locally, err: ", e);
         }
